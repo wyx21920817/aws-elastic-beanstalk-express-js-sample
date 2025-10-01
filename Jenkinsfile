@@ -1,17 +1,12 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:16'   // Use Node.js 16 as build environment
-        }
-    }
+    agent any   // Run on any available agent; Jenkins container uses DinD for Docker builds
     environment {
-        // Replace with your Docker Hub repo
-        DOCKER_IMAGE = "ghostwyx0422/node-app:latest"
+        DOCKER_IMAGE = "ghostwyx0422/node-app:latest"   // Replace with your Docker Hub repo
     }
     stages {
         stage('Install Dependencies') {
             steps {
-                sh 'npm install --save'   // Install project dependencies
+                sh 'npm install'   // Install project dependencies
             }
         }
 
@@ -29,10 +24,18 @@ pipeline {
             }
         }
 
+        stage('Security Scan') {
+            steps {
+                script {
+                    // Example with Snyk CLI (must be installed in Jenkins container or node)
+                    sh 'snyk test || exit 1'
+                }
+            }
+        }
+
         stage('Push Docker Image') {
             steps {
                 script {
-                    // Use stored Docker Hub credentials (dockerhub-creds)
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                         sh "docker push $DOCKER_IMAGE"
@@ -42,3 +45,4 @@ pipeline {
         }
     }
 }
+
