@@ -1,43 +1,42 @@
 pipeline {
   agent none
+
   environment {
-    DOCKER_HOST       = 'tcp://docker:2376'
-    DOCKER_TLS_VERIFY = '1'
-    DOCKER_CERT_PATH  = '/certs/client'
-    DOCKER_IMAGE      = 'ghostwyx0422/node-app:latest'
-    SHARED_WS         = '/tmp/ws'          // Located inside the Jenkins container
+    DOCKER_IMAGE = 'ghostwyx0422/node-app:latest'   // your Docker Hub repo
   }
 
   stages {
     stage('Install & Test (Node 16)') {
-      agent { label 'built-in' }           // Run on the control node (Jenkins container)
+      agent {
+        docker {
+          image 'node:16'         // required by the spec
+          args  '-u 0:0'          // run as root to avoid npm permission issues
+        }
+      }
       steps {
-        sh '''
-          rm -rf "$SHARED_WS" && mkdir -p "$SHARED_WS"
-          cp -a "$WORKSPACE/." "$SHARED_WS/"
-
-          # Run npm using the node:16 container (the container runs on DinD)
-          docker run --rm -u 0:0 \
-            -v "$SHARED_WS":"$SHARED_WS" -w "$SHARED_WS" \
-            node:16 bash -lc "npm ci || npm install --save; npm test || echo no tests"
-        '''
+        sh 'npm install --save'   // match the assignment wording exactly
+        sh 'npm test || echo "no tests"'  // run tests if present
       }
     }
 
     stage('Build & Push (Docker via DinD)') {
-      agent { label 'built-in' }
+      agent { label 'built-in' }  // run on the Jenkins container
+      environment {
+        DOCKER_HOST       = 'tcp://docker:2376'
+        DOCKER_TLS_VERIFY = '1'
+        DOCKER_CERT_PATH  = '/certs/client'
+      }
       steps {
-        sh '''
-          docker version
-          docker build -t "$DOCKER_IMAGE" "$SHARED_WS"
-          echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-          docker push "$DOCKER_IMAGE"
-        '''
+        sh 'docker version'
+        sh "docker build -t ${DOCKER_IMAGE} ."
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+                                          usernameVariable: 'DOCKER_USER',
+                                          passwordVariable: 'DOCKER_PASS')]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+          sh "docker push ${DOCKER_IMAGE}"
+        }
       }
     }
-  }
-  post {
-    always { sh 'rm -rf "$SHARED_WS" || true' }
   }
 }
 
