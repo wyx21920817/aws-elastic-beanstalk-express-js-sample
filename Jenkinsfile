@@ -1,45 +1,41 @@
 pipeline {
-    agent any   // Run on any available agent; Jenkins container uses DinD for Docker builds
+    agent any
     environment {
-        DOCKER_IMAGE = "ghostwyx0422/node-app:latest"   // Replace with your Docker Hub repo
+        DOCKER_IMAGE = "ghostwyx0422/node-app:latest"
     }
     stages {
         stage('Install Dependencies') {
+            agent { docker { image 'node:16'; reuseNode true } }
             steps {
-                sh 'npm install'   // Install project dependencies
+                sh 'npm install --save'
             }
         }
 
         stage('Run Tests') {
+            agent { docker { image 'node:16'; reuseNode true } }
             steps {
-                sh 'npm test'   // Run unit tests
+                sh 'npm test'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    sh "docker build -t $DOCKER_IMAGE ."
-                }
+                sh "docker build -t $DOCKER_IMAGE ."
             }
         }
 
         stage('Security Scan') {
+            agent { docker { image 'node:16'; reuseNode true } }
             steps {
-                script {
-                    // Example with Snyk CLI (must be installed in Jenkins container or node)
-                    sh 'snyk test || exit 1'
-                }
+                sh 'npx snyk test || exit 1'
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh "docker push $DOCKER_IMAGE"
-                    }
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh "docker push $DOCKER_IMAGE"
                 }
             }
         }
