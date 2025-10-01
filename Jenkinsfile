@@ -2,30 +2,28 @@ pipeline {
   agent none
 
   environment {
-    DOCKER_IMAGE = 'ghostwyx0422/node-app:latest'   // your Docker Hub repo
+    // 用你的 Docker Hub 仓库
+    DOCKER_IMAGE     = 'ghostwyx0422/node-app:latest'
+    // 让所有需要 docker 的阶段都指向 DinD
+    DOCKER_HOST       = 'tcp://docker:2376'
+    DOCKER_TLS_VERIFY = '1'
+    DOCKER_CERT_PATH  = '/certs/client'
   }
 
   stages {
     stage('Install & Test (Node 16)') {
-      agent {
-        docker {
-          image 'node:16'         // required by the spec
-          args  '-u 0:0'          // run as root to avoid npm permission issues
-        }
-      }
+      agent { label 'built-in' }  // 在 Jenkins 节点上发出 docker 命令（目标是 DinD）
       steps {
-        sh 'npm install --save'   // match the assignment wording exactly
-        sh 'npm test || echo "no tests"'  // run tests if present
+        sh '''
+          docker run --rm -u 0:0 \
+            -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
+            node:16 bash -lc 'npm install --save && (npm test || echo "no tests")'
+        '''
       }
     }
 
     stage('Build & Push (Docker via DinD)') {
-      agent { label 'built-in' }  // run on the Jenkins container
-      environment {
-        DOCKER_HOST       = 'tcp://docker:2376'
-        DOCKER_TLS_VERIFY = '1'
-        DOCKER_CERT_PATH  = '/certs/client'
-      }
+      agent { label 'built-in' }
       steps {
         sh 'docker version'
         sh "docker build -t ${DOCKER_IMAGE} ."
