@@ -14,9 +14,8 @@ pipeline {
       steps {
         echo "Starting npm install..."
         sh '''
-          docker run --rm -u 0:0 \
-            -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
-            node:16 bash -lc 'npm install --save && (npm test || echo "no tests")'
+          docker run --rm -u 0:0 -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
+          node:16 bash -lc 'npm install --save && (npm test || echo "no tests")'
         '''
         echo "npm install and tests completed."
       }
@@ -28,10 +27,8 @@ pipeline {
         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
           echo "Starting Snyk Security Scan..."
           sh '''
-            docker run --rm -u 0:0 \
-              -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
-              -e SNYK_TOKEN="$SNYK_TOKEN" \
-              node:16 bash -lc 'npm install -g snyk && snyk test --severity-threshold=high'
+            docker run --rm -u 0:0 -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
+            -e SNYK_TOKEN="$SNYK_TOKEN" node:16 bash -lc 'npm install -g snyk && snyk test --severity-threshold=high'
           '''
           echo "Snyk Security Scan completed."
         }
@@ -44,14 +41,14 @@ pipeline {
         echo "Starting Docker version check..."
         sh 'docker version'
         echo "Docker version check completed."
-
-        echo "Building Docker image..."
-        sh "docker build -t ${DOCKER_IMAGE} . > build.log 2>&1"
-        echo "Docker image build completed."
         
-        // Record Warnings from build log
-    	recordIssues(
-          tools: [[$class: 'WarningsPublisher', parserConfigurations: [[$class: 'TextFileParser', filePattern: '**/*.log']]]],
+        echo "Building Docker image..."
+        sh "docker build -t ${DOCKER_IMAGE} ."
+        echo "Docker image build completed."
+
+        // Record Warnings from build log (simplified version)
+        recordIssues(
+          tools: [[class: 'TextFileParser', filePattern: '**/*.log']],
           filters: [filePattern: '**/*.log']
         )
 
@@ -61,7 +58,7 @@ pipeline {
           echo "Logging into Docker..."
           sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
           echo "Docker login successful."
-
+          
           echo "Pushing Docker image..."
           sh "docker push ${DOCKER_IMAGE}"
           echo "Docker image pushed successfully."
