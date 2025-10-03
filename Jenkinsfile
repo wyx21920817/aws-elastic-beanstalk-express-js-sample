@@ -12,13 +12,13 @@ pipeline {
     stage('Install & Test (Node 16)') {
       agent { label 'built-in' }
       steps {
+        echo "Starting npm install..."
         sh '''
-          echo "Starting npm install..."
           docker run --rm -u 0:0 \
             -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
             node:16 bash -lc 'npm install --save && (npm test || echo "no tests")'
-          echo "npm install and tests completed."
         '''
+        echo "npm install and tests completed."
       }
     }
 
@@ -26,14 +26,14 @@ pipeline {
       agent { label 'built-in' }
       steps {
         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+          echo "Starting Snyk Security Scan..."
           sh '''
-            echo "Starting Snyk Security Scan..."
             docker run --rm -u 0:0 \
               -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
               -e SNYK_TOKEN="$SNYK_TOKEN" \
               node:16 bash -lc 'npm install -g snyk && snyk test --severity-threshold=high'
-            echo "Snyk Security Scan completed."
           '''
+          echo "Snyk Security Scan completed."
         }
       }
     }
@@ -46,7 +46,7 @@ pipeline {
         echo "Docker version check completed."
 
         echo "Building Docker image..."
-        sh "docker build -t ${DOCKER_IMAGE} ."
+        sh "docker build -t ${DOCKER_IMAGE} . > build.log 2>&1"
         echo "Docker image build completed."
 
         withCredentials([usernamePassword(credentialsId: 'user-creds',
@@ -60,10 +60,10 @@ pipeline {
           sh "docker push ${DOCKER_IMAGE}"
           echo "Docker image pushed successfully."
         }
-        
-        // Archive build artifacts
-        echo "Archiving build artifacts..."
-        archiveArtifacts artifacts: '**/*.tar.gz', allowEmptyArchive: true
+
+        // Archive Docker build log
+        echo "Archiving build log..."
+        archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
         echo "Build artifacts archived."
       }
     }
