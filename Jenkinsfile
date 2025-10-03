@@ -50,9 +50,10 @@ pipeline {
         echo "Docker image build completed."
         
         // Record Warnings from build log
-    	recordIssues filters: [
-      	  filePattern: '**/*.log'
-        ]
+    	recordIssues(
+      	  tools: [[$class: 'MavenCompilerWarnings'], [$class: 'MavenFindBugsWarnings']], 
+          filters: [filePattern: '**/*.log']
+        )
 
         withCredentials([usernamePassword(credentialsId: 'user-creds',
                                           usernameVariable: 'DOCKER_USER',
