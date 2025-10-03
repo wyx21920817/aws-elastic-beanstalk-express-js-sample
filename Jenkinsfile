@@ -48,8 +48,9 @@ pipeline {
 
         // Record Warnings from build log (simplified version)
         recordIssues(
-          tools: [[class: 'TextFileParser', filePattern: '**/*.log']],
-          filters: [filePattern: '**/*.log']
+          tools: [
+            [class: 'TextFileParser', filePattern: '**/*.log']
+          ]
         )
 
         withCredentials([usernamePassword(credentialsId: 'user-creds',
