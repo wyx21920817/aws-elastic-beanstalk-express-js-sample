@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent none
 
   environment {
     DOCKER_IMAGE     = 'ghostwyx0422/node-app:latest'
@@ -13,9 +13,13 @@ pipeline {
       agent { label 'built-in' }
       steps {
         sh '''
-          docker run --rm -u 0:0 \
-            -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
-            node:16 bash -lc 'npm install --save && (npm test || echo "no tests")'
+          echo "Starting npm install..."
+          npm install --save
+          echo "npm install completed."
+          
+          echo "Running npm tests..."
+          npm test || echo "No tests"
+          echo "npm test completed."
         '''
       }
     }
@@ -25,10 +29,9 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
           sh '''
-            docker run --rm -u 0:0 \
-              -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
-              -e SNYK_TOKEN="$SNYK_TOKEN" \
-              node:16 bash -lc 'npm install -g snyk && snyk test --severity-threshold=high'
+            echo "Starting Snyk Security Scan..."
+            snyk test --severity-threshold=high
+            echo "Snyk Security Scan Completed."
           '''
         }
       }
@@ -38,15 +41,22 @@ pipeline {
       agent { label 'built-in' }
       steps {
         sh 'docker version'
+        
+        sh 'echo "Building Docker Image..."'
         sh "docker build -t ${DOCKER_IMAGE} ."
+        sh 'echo "Docker Image Build Completed."'
+        
         withCredentials([usernamePassword(credentialsId: 'user-creds',
                                           usernameVariable: 'DOCKER_USER',
                                           passwordVariable: 'DOCKER_PASS')]) {
+          sh 'echo "Logging into Docker..."'
           sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
           sh "docker push ${DOCKER_IMAGE}"
+          sh 'echo "Docker Image Pushed."'
         }
+
         // Archive build artifacts
-    	archiveArtifacts artifacts: '**/*.tar.gz', allowEmptyArchive: true
+        archiveArtifacts artifacts: '**/*.tar.gz', allowEmptyArchive: true
       }
     }
   }
