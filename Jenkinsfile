@@ -14,12 +14,10 @@ pipeline {
       steps {
         sh '''
           echo "Starting npm install..."
-          npm install --save
-          echo "npm install completed."
-          
-          echo "Running npm tests..."
-          npm test || echo "No tests"
-          echo "npm test completed."
+          docker run --rm -u 0:0 \
+            -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
+            node:16 bash -lc 'npm install --save && (npm test || echo "no tests")'
+          echo "npm install and tests completed."
         '''
       }
     }
@@ -30,8 +28,11 @@ pipeline {
         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
           sh '''
             echo "Starting Snyk Security Scan..."
-            snyk test --severity-threshold=high
-            echo "Snyk Security Scan Completed."
+            docker run --rm -u 0:0 \
+              -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
+              -e SNYK_TOKEN="$SNYK_TOKEN" \
+              node:16 bash -lc 'npm install -g snyk && snyk test --severity-threshold=high'
+            echo "Snyk Security Scan completed."
           '''
         }
       }
@@ -40,23 +41,30 @@ pipeline {
     stage('Build & Push (Docker via DinD)') {
       agent { label 'built-in' }
       steps {
+        echo "Starting Docker version check..."
         sh 'docker version'
-        
-        sh 'echo "Building Docker Image..."'
+        echo "Docker version check completed."
+
+        echo "Building Docker image..."
         sh "docker build -t ${DOCKER_IMAGE} ."
-        sh 'echo "Docker Image Build Completed."'
-        
+        echo "Docker image build completed."
+
         withCredentials([usernamePassword(credentialsId: 'user-creds',
                                           usernameVariable: 'DOCKER_USER',
                                           passwordVariable: 'DOCKER_PASS')]) {
-          sh 'echo "Logging into Docker..."'
+          echo "Logging into Docker..."
           sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-          sh "docker push ${DOCKER_IMAGE}"
-          sh 'echo "Docker Image Pushed."'
-        }
+          echo "Docker login successful."
 
+          echo "Pushing Docker image..."
+          sh "docker push ${DOCKER_IMAGE}"
+          echo "Docker image pushed successfully."
+        }
+        
         // Archive build artifacts
+        echo "Archiving build artifacts..."
         archiveArtifacts artifacts: '**/*.tar.gz', allowEmptyArchive: true
+        echo "Build artifacts archived."
       }
     }
   }
