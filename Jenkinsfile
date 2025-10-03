@@ -51,7 +51,7 @@ pipeline {
         
         // Record Warnings from build log
     	recordIssues(
-      	  tools: [[$class: 'MavenCompilerWarnings'], [$class: 'MavenFindBugsWarnings']], 
+          tools: [[$class: 'WarningsPublisher', parserConfigurations: [[$class: 'TextFileParser', filePattern: '**/*.log']]]],
           filters: [filePattern: '**/*.log']
         )
 
