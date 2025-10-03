@@ -46,13 +46,6 @@ pipeline {
         sh "docker build -t ${DOCKER_IMAGE} ."
         echo "Docker image build completed."
 
-        // Record Warnings from build log (simplified version)
-        recordIssues(
-          tools: [
-            [class: 'TextFileParser', filePattern: '**/*.log']
-          ]
-        )
-
         withCredentials([usernamePassword(credentialsId: 'user-creds',
                                           usernameVariable: 'DOCKER_USER',
                                           passwordVariable: 'DOCKER_PASS')]) {
