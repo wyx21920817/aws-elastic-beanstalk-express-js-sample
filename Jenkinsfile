@@ -45,6 +45,8 @@ pipeline {
           sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
           sh "docker push ${DOCKER_IMAGE}"
         }
+        // Archive build artifacts
+    	archiveArtifacts artifacts: '**/*.tar.gz', allowEmptyArchive: true
       }
     }
   }
