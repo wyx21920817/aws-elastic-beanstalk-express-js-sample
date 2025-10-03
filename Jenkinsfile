@@ -28,7 +28,7 @@ pipeline {
             docker run --rm -u 0:0 \
               -v "$WORKSPACE":"$WORKSPACE" -w "$WORKSPACE" \
               -e SNYK_TOKEN="$SNYK_TOKEN" \
-              snyk/snyk:stable snyk test --severity-threshold=high
+              node:16 bash -lc 'npm install -g snyk && snyk test --severity-threshold=high'
           '''
         }
       }
