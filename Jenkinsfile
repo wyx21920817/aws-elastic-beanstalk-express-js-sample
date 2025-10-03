@@ -48,6 +48,9 @@ pipeline {
         echo "Building Docker image..."
         sh "docker build -t ${DOCKER_IMAGE} . > build.log 2>&1"
         echo "Docker image build completed."
+        
+        // Record Warnings from build log
+    	recordIssues(to: 'Console Log', pattern: '**/*.log')
 
         withCredentials([usernamePassword(credentialsId: 'user-creds',
                                           usernameVariable: 'DOCKER_USER',
